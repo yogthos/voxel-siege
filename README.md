@@ -11,6 +11,10 @@ The interesting part: destruction scoring, chunk mass, and center-of-mass all
 come from the divergence theorem with volumes and centroids being computed from
 the surface mesh.
 
+<p align="center">
+  <img src="img/voxel-siege.jpg" alt="screenshot" width="500">
+</p>
+
 ## Run
 
 ```
