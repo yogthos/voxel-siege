@@ -42,6 +42,87 @@
                   :color (cell-color cell (get cells cell)))))
     (rl/rl-pop-matrix)))
 
+;; --- terrain (Tunic-style pastel scenery) ------------------------------------
+
+(def GRASS-A (rl/rgba 156 199 129 255))
+(def GRASS-B (rl/rgba 146 188 121 255))
+(def HILL-SIDE (rl/rgba 122 166 103 255))
+(def HILL-CAP (rl/rgba 171 209 137 255))
+(def PINE-BOTTOM (rl/rgba 47 81 57 255))
+(def PINE-MID (rl/rgba 62 100 70 255))
+(def PINE-TOP (rl/rgba 84 128 86 255))
+(def TRUNK-BROWN (rl/rgba 110 84 60 255))
+
+(def ^:private FIELD-X0 -66.0)
+(def ^:private FIELD-X1 66.0)
+(def ^:private FIELD-Z0 -66.0)
+(def ^:private FIELD-Z1 42.0)
+(def ^:private TILE 2.0)
+(def ^:private CHK-X0 -40.0)
+(def ^:private CHK-X1 40.0)
+(def ^:private CHK-Z0 -56.0)
+(def ^:private CHK-Z1 36.0)
+
+(defn- draw-ground!
+  "One big grass quad plus a soft two-tone checker a hair above it — scale
+  cues without the old hard grid."
+  []
+  (rl/rl-begin rl/RL-TRIANGLES)
+  ;; triangles are wound +y (camera looks down): raylib culls back-faces
+  (rl/rl-color! GRASS-A)
+  (rl/rl-vertex-3f FIELD-X0 0.0 FIELD-Z0)
+  (rl/rl-vertex-3f FIELD-X1 0.0 FIELD-Z1)
+  (rl/rl-vertex-3f FIELD-X1 0.0 FIELD-Z0)
+  (rl/rl-vertex-3f FIELD-X0 0.0 FIELD-Z0)
+  (rl/rl-vertex-3f FIELD-X0 0.0 FIELD-Z1)
+  (rl/rl-vertex-3f FIELD-X1 0.0 FIELD-Z1)
+  (rl/rl-color! GRASS-B)
+  (let [y 0.008
+        i0 (int (/ CHK-X0 TILE)) i1 (int (/ CHK-X1 TILE))
+        j0 (int (/ CHK-Z0 TILE)) j1 (int (/ CHK-Z1 TILE))]
+    (doseq [i (range i0 i1)
+            j (range j0 j1)
+            :when (odd? (+ i j))]
+      (let [x0 (* i TILE) z0 (* j TILE)
+            x1 (+ x0 TILE) z1 (+ z0 TILE)]
+        (rl/rl-vertex-3f x0 y z0)
+        (rl/rl-vertex-3f x1 y z1)
+        (rl/rl-vertex-3f x1 y z0)
+        (rl/rl-vertex-3f x0 y z0)
+        (rl/rl-vertex-3f x0 y z1)
+        (rl/rl-vertex-3f x1 y z1))))
+  (rl/rl-end))
+
+(defn- draw-hill!
+  "Two stacked flat-topped tiers — a low plateau mound."
+  [{:keys [x z base-r height]}]
+  (rl/frustum! :pos [x 0.0 z]
+               :base-r base-r :top-r (* 0.55 base-r)
+               :height (* 0.6 height) :segments 12 :color HILL-SIDE)
+  (rl/frustum! :pos [x (* 0.6 height) z]
+               :base-r (* 0.5 base-r) :top-r (* 0.16 base-r)
+               :height (* 0.5 height) :segments 10 :color HILL-CAP))
+
+(defn- draw-tree!
+  "A trunk plus three stepped pine tiers."
+  [{:keys [x z scale]}]
+  (let [s scale]
+    (rl/cube! :pos [x (* 0.45 s) z] :size [(* 0.5 s) (* 0.9 s) (* 0.5 s)]
+              :color TRUNK-BROWN)
+    (rl/frustum! :pos [x (* 0.7 s) z] :base-r (* 1.4 s) :top-r (* 0.55 s)
+                 :height (* 1.5 s) :segments 8 :color PINE-BOTTOM)
+    (rl/frustum! :pos [x (* 1.7 s) z] :base-r (* 1.05 s) :top-r (* 0.42 s)
+                 :height (* 1.3 s) :segments 8 :color PINE-MID)
+    (rl/frustum! :pos [x (* 2.6 s) z] :base-r (* 0.75 s) :top-r (* 0.12 s)
+                 :height (* 1.15 s) :segments 7 :color PINE-TOP)))
+
+(defn- draw-terrain!
+  "The static scenery: grass field, hills, pines."
+  [terrain]
+  (draw-ground!)
+  (doseq [h (:hills terrain)] (draw-hill! h))
+  (doseq [t (:trees terrain)] (draw-tree! t)))
+
 (defn- draw-trajectory!
   "Dotted aim arc from the muzzle with the current aim and power."
   [aim power]
@@ -111,7 +192,7 @@
 
 (defn draw-frame!
   "Everything for one frame."
-  [{:keys [world ui debris width height screen]}]
+  [{:keys [world ui debris width height screen terrain]}]
   (rl/begin-drawing)
   (rl/clear-background (rl/rgba 120 175 225 255))
   (rl/with-camera-3d {:pos-x (CAMERA-POS 0) :pos-y (CAMERA-POS 1) :pos-z (CAMERA-POS 2)
@@ -119,7 +200,7 @@
                       :target-z (CAMERA-TARGET 2)
                       :fovy 55.0 :projection 0}
     (fn []
-      (rl/draw-grid 70 1.0)
+      (draw-terrain! terrain)
       (when (= :game screen)
         (draw-trajectory! (:aim ui) (if (:charging ui)
                                       (min 1.0 (/ (:charge-t ui) input/CHARGE-TIME))

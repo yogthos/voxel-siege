@@ -3,11 +3,14 @@
   (:require [voxel.raylib :as rl]
             [voxel.input :as input]
             [voxel.world :as w]
-            [voxel.physics :as phys]
-            [voxel.render :as render]))
+             [voxel.physics :as phys]
+             [voxel.render :as render]
+             [voxel.terrain :as terrain]))
 
 (def WIDTH 960)
 (def HEIGHT 540)
+;; static scenery, computed once per launch (deterministic layout)
+(def scenery (terrain/scene))
 (def MAX-DEBRIS 240)
 (def EXPLOSION-STRENGTH 0.3)
 (def EXPLOSION-OVERREACH 0.5)
@@ -159,7 +162,7 @@
                         :charge-t charge-t
                         :aim (:aim in)
                         :mx (:mx in) :my (:my in))]
-          (render/draw-frame! {:world world' :ui ui :debris debris'
+           (render/draw-frame! {:world world' :ui ui :debris debris' :terrain scenery
                                :width WIDTH :height HEIGHT
                                :screen (end-screen screen world')})
           (rl/maybe-screenshot! frame 150)

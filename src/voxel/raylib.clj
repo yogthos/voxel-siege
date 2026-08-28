@@ -133,7 +133,7 @@
         (int (* f (bit-and (bit-shift-right color 16) 0xff)))
         255))
 
-(defn- quad-3f
+(defn quad!
   "Two rlgl triangles for a quad, given a shaded color and a vector of its four
   [x y z] corners in a→b→c→d winding order."
   [color [a b c d]]
@@ -161,12 +161,12 @@
         a000 [x0 y0 z0] a100 [x1 y0 z0] a010 [x0 y1 z0] a110 [x1 y1 z0]
         a001 [x0 y0 z1] a101 [x1 y0 z1] a011 [x0 y1 z1] a111 [x1 y1 z1]]
     (rl-begin RL-TRIANGLES)
-    (quad-3f (shade color 1.0)  [a001 a101 a111 a011])   ; front  +z
-    (quad-3f (shade color 0.5)  [a100 a000 a010 a110])   ; back   -z
-    (quad-3f (shade color 0.7)  [a000 a001 a011 a010])   ; left   -x
-    (quad-3f (shade color 0.85) [a101 a100 a110 a111])   ; right  +x
-    (quad-3f (shade color 1.0)  [a011 a111 a110 a010])   ; top    +y
-    (quad-3f (shade color 0.4)  [a000 a100 a101 a001])   ; bottom -y
+    (quad! (shade color 1.0)  [a001 a101 a111 a011])   ; front  +z
+    (quad! (shade color 0.5)  [a100 a000 a010 a110])   ; back   -z
+    (quad! (shade color 0.7)  [a000 a001 a011 a010])   ; left   -x
+    (quad! (shade color 0.85) [a101 a100 a110 a111])   ; right  +x
+    (quad! (shade color 1.0)  [a011 a111 a110 a010])   ; top    +y
+    (quad! (shade color 0.4)  [a000 a100 a101 a001])   ; bottom -y
     (rl-end)))
 
 (defn sphere!
@@ -203,7 +203,51 @@
                 p01 [(+ cx (* radius r0 c1)) (+ cy (* radius y0)) (+ cz (* radius r0 s1))]
                 p10 [(+ cx (* radius r1 c0)) (+ cy (* radius y1)) (+ cz (* radius r1 s0))]
                 p11 [(+ cx (* radius r1 c1)) (+ cy (* radius y1)) (+ cz (* radius r1 s1))]]
-            (quad-3f shaded [p00 p10 p11 p01])))))
+            (quad! shaded [p00 p10 p11 p01])))))
+    (rl-end)))
+
+(defn frustum!
+  "Draw a vertical frustum (truncated cone) via rlgl triangles: one
+  flat-shaded quad per radial segment plus an optional top cap, faking
+  lighting like cube! does. Must be called inside a BeginMode3D block.
+  Keyword args:
+    :pos      [x y z] base centre   (default [0 0 0])
+    :base-r   radius at the base    (default 1)
+    :top-r    radius at the top     (default 0 = cone)
+    :height   vertical extent       (default 1)
+    :segments radial slices         (default 8)
+    :color    packed Color          (default BLACK)
+    :cap?     draw the top disc     (default true)"
+  [& {:keys [pos base-r top-r height segments color cap?]
+      :or {pos [0.0 0.0 0.0]
+           base-r 1.0
+           top-r 0.0
+           height 1.0
+           segments 8
+           color BLACK
+           cap? true}}]
+  (let [[cx cy cz] pos
+        two-pi (* 2.0 Math/PI)]
+    (rl-begin RL-TRIANGLES)
+    (dotimes [j segments]
+      (let [lon0 (* two-pi (/ (double j) segments))
+            lon1 (* two-pi (/ (double (inc j)) segments))
+            s0 (Math/sin lon0) c0 (Math/cos lon0)
+            s1 (Math/sin lon1) c1 (Math/cos lon1)
+            b0 [(- cx (* base-r s0)) cy (- cz (* base-r c0))]
+            b1 [(- cx (* base-r s1)) cy (- cz (* base-r c1))]
+            t0 [(- cx (* top-r s0)) (+ cy height) (- cz (* top-r c0))]
+            t1 [(- cx (* top-r s1)) (+ cy height) (- cz (* top-r c1))]
+            ;; flat per-face light: brightest facing the camera (+z)
+            mid (* 0.5 (+ lon0 lon1))
+            f (+ 0.72 (* 0.28 (- 1.0 (* 0.5 (+ 1.0 (Math/cos mid))))))]
+        (quad! (shade color f) [b0 b1 t1 t0])
+        (when cap?
+          (rl-color! (shade color 1.0))
+          (let [tc [cx (+ cy height) cz]]
+            (rl-vertex-3f (t0 0) (t0 1) (t0 2))
+            (rl-vertex-3f (t1 0) (t1 1) (t1 2))
+            (rl-vertex-3f (tc 0) (tc 1) (tc 2))))))
     (rl-end)))
 
 ;; --- input -------------------------------------------------------------------

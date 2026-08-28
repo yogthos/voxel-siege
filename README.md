@@ -12,7 +12,7 @@ come from the divergence theorem — a body's volume is exactly its cell count
 however it tumbles, and centroids come straight off the surface mesh.
 
 <p align="center">
-  <img src="img/voxel-siege.jpg" alt="screenshot" width="500">
+  <img src="img/voxel-siege.png" alt="screenshot" width="500">
 </p>
 
 ## Run
@@ -47,6 +47,9 @@ scripts/build-native.sh   # vendors box3d, builds libbox3d + the shim
 ```
 
 - The cannonball is a real sphere body; gravity and rolling come from Box3D.
+- The field is dressed Tunic-style: a soft two-tone grass checker, low
+  flat-topped hills, and stepped pines (`voxel.terrain` — deterministic per
+  seed, and placement keeps the firing corridor clear).
 - The castle is rigid bodies from frame one: each structural part (tower,
   curtain wall, tower) is one compound Box3D body — one 0.98-wide box hull
   per cell — spawned asleep, so the standing castle costs nothing until
