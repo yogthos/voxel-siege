@@ -24,14 +24,23 @@
         f (case v 0 1.0 1 0.93 2 0.86)]
     (rl/shade (get MAT-COLORS mat) f)))
 
-(defn- draw-voxels!
-  [voxels y-off]
-  (let [surface (mesh/surface-cells voxels)]
-    (doseq [cell surface]
+(defn- draw-chunk!
+  "A structure body at its physics transform: translate to the body position,
+  rotate by its quaternion, and draw the cells relative to the anchor the
+  body was spawned around."
+  [ch]
+  (let [[px py pz] (:pos ch)
+        [ax ay az] (:anchor ch)
+        cells (:cells ch)]
+    (rl/rl-push-matrix)
+    (rl/rl-translate-f (double px) (double py) (double pz))
+    (rl/rl-rotate-quaternion! (:quat ch))
+    (doseq [cell (mesh/surface-cells cells)]
       (let [[i j k] cell]
-        (rl/cube! :pos [(+ i 0.5) (- (+ j 0.5) y-off) (+ k 0.5)]
+        (rl/cube! :pos [(- (+ i 0.5) ax) (- (+ j 0.5) ay) (- (+ k 0.5) az)]
                   :size 0.98
-                  :color (cell-color cell (get voxels cell)))))))
+                  :color (cell-color cell (get cells cell)))))
+    (rl/rl-pop-matrix)))
 
 (defn- draw-trajectory!
   "Dotted aim arc from the muzzle with the current aim and power."
@@ -115,11 +124,10 @@
         (draw-trajectory! (:aim ui) (if (:charging ui)
                                       (min 1.0 (/ (:charge-t ui) input/CHARGE-TIME))
                                       0.55)))
-      (draw-voxels! (:voxels world) 0.0)
-      (doseq [ch (:chunks world)]
-        (draw-voxels! (:cells ch) (:off ch)))
+      (doseq [b (:bodies world)]
+        (draw-chunk! b))
       (when-let [b (:ball world)]
-        (rl/sphere! :pos [(:x b) (:y b) (:z b)] :radius 0.5
+        (rl/sphere! :pos (or (:pos b) (:origin b)) :radius 0.5
                     :rings 10 :slices 14 :color rl/DARKBROWN))
       (draw-debris! debris)))
   (when (= :game screen)

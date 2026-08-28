@@ -3,9 +3,14 @@
  ;; raylib over its C ABI via jolt.ffi. Homebrew's lib dir is not on Chez's
  ;; default dlopen search path, so the absolute path is listed first.
  :jolt/native [{:name "raylib"
-                :darwin ["/opt/homebrew/lib/libraylib.dylib" "libraylib.dylib"]
-                :linux  ["libraylib.so.6" "libraylib.so"]}]
+                 :darwin ["/opt/homebrew/lib/libraylib.dylib" "libraylib.dylib"]
+                 :linux  ["libraylib.so.6" "libraylib.so"]}
+                ;; Box3D via the pointer/scalar shim. Build with scripts/build-native.sh
+                {:name "voxel_b3"
+                 :darwin ["native/libvoxel_b3.dylib"]
+                 :linux  ["native/libvoxel_b3.so"]}]
 
  :aliases {:test {:extra-paths ["test"]
                   :main-opts ["-m" "voxel.test-runner"]}
-           :run  {:main-opts ["-m" "voxel.main"]}}}
+           :run  {:main-opts ["-m" "voxel.main"]}
+           :b3probe {:main-opts ["-m" "voxel.b3-probe"]}}}

@@ -2,3 +2,13 @@
 .cpcache
 .jolt
 .lsp
+
+# box3d clone + vendored build + compiled shim (scripts/build-native.sh
+# clones box3d itself when missing)
+vendor/
+native/*.dylib
+native/*.o
+
+# headless smoke-test screenshots + downloaded reference paper
+vs_*.png
+*.htm

@@ -64,6 +64,23 @@
                 (bit-and (bit-shift-right color 16) 0xff)
                 (bit-and (bit-shift-right color 24) 0xff)))
 
+;; --- rlgl matrix stack (rotated chunk drawing) --------------------------------
+(ffi/defcfn rl-push-matrix "rlPushMatrix"  [] :void)
+(ffi/defcfn rl-pop-matrix  "rlPopMatrix"   [] :void)
+(ffi/defcfn rl-translate-f "rlTranslatef"  [:float :float :float] :void)
+(ffi/defcfn rl-rotate-f    "rlRotatef"     [:float :float :float :float] :void)
+
+(defn rl-rotate-quaternion!
+  "Apply quaternion [qx qy qz qw] to the current matrix via rlRotatef
+  (axis-angle form; near-identity quaternions are skipped)."
+  [[qx qy qz qw]]
+  (let [w (min 1.0 (max -1.0 (double qw)))
+        angle (* 2.0 (Math/acos w))
+        s (Math/sin (* 0.5 angle))]
+    (when (> (Math/abs s) 1e-6)
+      (rl-rotate-f (Math/toDegrees angle)
+                   (double (/ qx s)) (double (/ qy s)) (double (/ qz s))))))
+
 ;; --- Camera3D + 3D geometry --------------------------------------------------
 ;; Camera3D is 44 bytes (three Vector3 + a float + an int), passed BY VALUE to
 ;; BeginMode3D, the >16-byte-struct-by-pointer approach. 3D shape helpers like
