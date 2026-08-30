@@ -40,11 +40,16 @@ Rigid bodies run on [Box3D](https://github.com/erincatto/box3d) (Erin Catto's
 3D successor to Box2D) over a small C shim: Box3D's public API passes vectors
 by value in FP registers, which `jolt.ffi` cannot express, so
 `native/voxel_b3.c` marshals everything and exposes a pointer/scalar-only ABI
-(body and world ids cross as integers). Build once with:
+(body and world ids cross as integers). Build it with:
 
 ```
-scripts/build-native.sh   # vendors box3d, builds libbox3d + the shim
+jolt native     # vendors and builds box3d if needed, then compiles the shim
 ```
+
+`native` is a `:tasks` entry in `deps.edn`, so the C build lives with the rest of
+the project config rather than in a separate script. It recompiles only when
+`native/voxel_b3.c` is newer than the library, and `jolt tasks` lists it
+alongside `box3d` and `clean-native`.
 
 - The cannonball is a sphere body with gravity and rolling coming from Box3D
 - The castle is rigid bodies with each structural part (tower,

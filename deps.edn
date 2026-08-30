@@ -5,10 +5,58 @@
  :jolt/native [{:name "raylib"
                  :darwin ["/opt/homebrew/lib/libraylib.dylib" "libraylib.dylib"]
                  :linux  ["libraylib.so.6" "libraylib.so"]}
-                ;; Box3D via the pointer/scalar shim. Build with scripts/build-native.sh
+                ;; Box3D via the pointer/scalar shim. `jolt native` builds it.
                 {:name "voxel_b3"
                  :darwin ["native/libvoxel_b3.dylib"]
                  :linux  ["native/libvoxel_b3.so"]}]
+
+ ;; The shared library above is compiled from native/voxel_b3.c by `jolt native`.
+ ;; Tasks come from deps.edn as readily as from bb.edn, so the C build lives with
+ ;; the rest of the project config instead of in a shell script or a makefile.
+ :tasks
+ {:requires ([babashka.fs :as fs])
+
+  ;; re-find rather than clojure.string, so :init needs nothing required.
+  :init (do (def mac? (some? (re-find #"^Mac" (System/getProperty "os.name"))))
+            (def lib (str "native/libvoxel_b3." (if mac? "dylib" "so")))
+            (def b3-dir "vendor/box3d/build/bin")
+            (def b3-lib (str b3-dir "/libbox3d." (if mac? "dylib" "so"))))
+
+  box3d
+  {:doc "clone and build vendored Box3D (skipped once built)"
+   :task (if (fs/exists? b3-lib)
+           (println "box3d: up to date")
+           (do (when-not (fs/exists? "vendor/box3d")
+                 (shell "git" "clone" "--depth" "1"
+                        "https://github.com/erincatto/box3d.git" "vendor/box3d"))
+               (shell "cmake" "-S" "vendor/box3d" "-B" "vendor/box3d/build"
+                      "-DCMAKE_BUILD_TYPE=Release" "-DBUILD_SHARED_LIBS=ON"
+                      "-DBOX3D_SAMPLES=OFF" "-DBOX3D_UNIT_TESTS=OFF"
+                      "-DBOX3D_BENCHMARKS=OFF" "-DBOX3D_DOCS=OFF")
+               (shell "cmake" "--build" "vendor/box3d/build" "-j8")))}
+
+  native
+  {:doc "compile native/voxel_b3.c into the library :jolt/native names"
+   :depends [box3d]
+   ;; Rebuilt only when the source is newer, so `jolt native` is cheap to put in
+   ;; front of a run. The arguments are passed SEPARATELY: no shell sees them, so
+   ;; the ELF rpath keeps its literal $ORIGIN (a single command string would have
+   ;; the shell expand it away to nothing).
+   :task (if (and (fs/exists? lib) (empty? (fs/modified-since lib ["native/voxel_b3.c"])))
+           (println "native: up to date -" lib)
+           (do (fs/create-dirs "native")
+               (shell "cc" "-O2" "-std=c11" "-fPIC" "-shared"
+                      "-Ivendor/box3d/include" "native/voxel_b3.c"
+                      (str "-L" b3-dir) "-lbox3d"
+                      (str "-Wl,-rpath," (if mac?
+                                           "@loader_path/../vendor/box3d/build/bin"
+                                           "$ORIGIN/../vendor/box3d/build/bin"))
+                      "-o" lib)
+               (println "built:" lib)))}
+
+  clean-native
+  {:doc "remove the compiled shim (not the vendored Box3D build)"
+   :task (do (fs/delete-if-exists lib) (println "removed:" lib))}}
 
  :aliases {:test {:extra-paths ["test"]
                   :main-opts ["-m" "voxel.test-runner"]}
